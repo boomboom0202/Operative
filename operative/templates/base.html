@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Dashboard{% endblock %}</title>
+
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+    <style>
+        body {
+            background: #f4f6f9;
+            font-size: 14px;
+        }
+
+        /* Navbar */
+        .navbar {
+            background: linear-gradient(90deg, #1f2937, #111827);
+        }
+        .navbar-brand, .nav-link {
+            color: #e5e7eb !important;
+        }
+        .nav-link:hover {
+            color: #ffffff !important;
+        }
+
+        /* Card */
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+        }
+
+        /* Table */
+        .table thead th {
+            background: #f1f5f9;
+            font-weight: 600;
+            text-align: center;
+            vertical-align: middle;
+        }
+        .table td {
+            vertical-align: middle;
+            text-align: center;
+        }
+
+        /* Workshop row */
+        .workshop-header {
+            background: #e2e8f0;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .workshop-header:hover {
+            background: #cbd5f5;
+        }
+
+        .positive { color: #16a34a; font-weight: 500; }
+        .negative { color: #dc2626; font-weight: 500; }
+
+        .arrow {
+            transition: transform 0.25s ease;
+        }
+        .collapsed .arrow {
+            transform: rotate(-90deg);
+        }
+    </style>
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar navbar-expand-lg mb-4">
+    <div class="container-fluid">
+        <a class="navbar-brand fw-bold" href="#">
+            <i class="bi bi-bar-chart-fill me-2"></i>Statistics Panel
+        </a>
+
+        <ul class="navbar-nav ms-auto">
+            <li class="nav-item">
+                <a class="nav-link" href="#"><i class="bi bi-speedometer2"></i> Dashboard</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#"><i class="bi bi-calendar3"></i> Месяц</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#"><i class="bi bi-diagram-3"></i> Division</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#"><i class="bi bi-gear"></i> Настройки</a>
+            </li>
+        </ul>
+    </div>
+</nav>
+
+<div class="container-fluid px-4">
+    {% block content %}{% endblock %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>
