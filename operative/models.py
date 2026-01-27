@@ -16,7 +16,7 @@ class Resource(models.Model):
     def __str__(self):
         return f"{self.name} ({self.unit})"
 
-class MonthlyPlan(models.Model):
+class Plan(models.Model):
     workshop = models.ForeignKey(
         Workshop,
         on_delete=models.CASCADE,
@@ -86,7 +86,7 @@ class StatisticsManager:
         from datetime import date
         
         try:
-            monthly_plan = MonthlyPlan.objects.get(
+            monthly_plan = Plan.objects.get(
                 workshop=workshop,
                 resource=resource,
                 year=year,
@@ -94,7 +94,7 @@ class StatisticsManager:
             )
             plan_month = monthly_plan.plan_value
             plan_daily = monthly_plan.get_daily_plan()
-        except MonthlyPlan.DoesNotExist:
+        except Plan.DoesNotExist:
             plan_month = 0
             plan_daily = 0
         
@@ -169,14 +169,14 @@ class StatisticsManager:
         """Получает статистику за конкретный день"""
         # План на день
         try:
-            monthly_plan = MonthlyPlan.objects.get(
+            monthly_plan = Plan.objects.get(
                 workshop=workshop,
                 resource=resource,
                 year=target_date.year,
                 month=target_date.month
             )
             plan_daily = monthly_plan.get_daily_plan()
-        except MonthlyPlan.DoesNotExist:
+        except Plan.DoesNotExist:
             plan_daily = 0
         
         # Факт за день

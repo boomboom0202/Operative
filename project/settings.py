@@ -38,8 +38,6 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'operative',
-    'crispy_forms',
-    'crispy_bootstrap5',
 ]
 CRISPY_TEMPLATE_PACK = 'bootstrap5'
 MIDDLEWARE = [
@@ -82,7 +80,7 @@ DATABASES = {
         'USER': 'postgres',            # пользователь БД
         'PASSWORD': 'ababaxa02',    # пароль
         'HOST': 'localhost',         # или IP сервера
-        'PORT': '5433',              # стандартный порт PostgreSQL
+        'PORT': '5432',              # стандартный порт PostgreSQL
     }
 }
 

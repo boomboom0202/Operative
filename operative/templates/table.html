@@ -2,23 +2,108 @@
 
 {% block title %}Месячная статистика{% endblock %}
 
+{% block extra_css %}
+<style>
+.table {
+    margin: 0;
+    font-size: 13px;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+/* Десктопная таблица */
+.table thead th {
+    background: #f3f4f6;
+    color: #1f2937;
+    font-weight: 600;
+    text-align: center;
+    padding: 0.75rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.table td {
+    text-align: center;
+    vertical-align: middle;
+    padding: 0.65rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.table tbody tr:hover { background: #f9fafb; }
+
+.workshop-header {
+    background: #2563eb;
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.workshop-header:hover { background: #1e40af; }
+.workshop-header td { padding: 0.85rem !important; }
+
+.arrow { display: inline-block; transition: transform 0.2s; }
+.collapsed .arrow { transform: rotate(-90deg); }
+
+.positive { color: #15803d; font-weight: 600; }
+.negative { color: #b91c1c; font-weight: 600; }
+
+.fact-below { background: #fef3f3; }
+.fact-above { background: #f0fdf4; }
+
+td.text-start { text-align: left !important; font-weight: 500; }
+.workshop-rows { display: none; }
+
+/* Мобильная версия */
+@media (max-width: 768px) {
+    .table thead { display: none; }
+    .table, .table tbody, .table tr, .table td { 
+        display: block; 
+        width: 100%;
+    }
+    .table tr { margin-bottom: 1rem; border-bottom: 2px solid #e5e7eb; }
+    .table td { 
+        text-align: right; 
+        padding-left: 50%; 
+        position: relative; 
+        border: none;
+    }
+    .table td::before {
+        position: absolute;
+        left: 15px;
+        width: 45%;
+        white-space: nowrap;
+        text-align: left;
+        font-weight: 600;
+    }
+
+    /* Подписи для колонок */
+    .table td:nth-of-type(1)::before { content: "No"; }
+    .table td:nth-of-type(2)::before { content: "Информация"; }
+    .table td:nth-of-type(3)::before { content: "План за месяц"; }
+    .table td:nth-of-type(4)::before { content: "План сутки"; }
+    .table td:nth-of-type(5)::before { content: "Факт сутки"; }
+    .table td:nth-of-type(6)::before { content: "+/- сутки"; }
+    .table td:nth-of-type(7)::before { content: "План месяц"; }
+    .table td:nth-of-type(8)::before { content: "Факт месяц"; }
+    .table td:nth-of-type(9)::before { content: "+/- месяц"; }
+    .table td:nth-of-type(10)::before { content: "План год"; }
+    .table td:nth-of-type(11)::before { content: "Факт год"; }
+    .table td:nth-of-type(12)::before { content: "+/- год"; }
+}
+</style>
+{% endblock %}
+
+
 {% block content %}
-
 <div class="card">
-    <div class="card-header bg-white border-0">
-        <h5 class="mb-0 fw-bold">
-            Статистика за {{ month }} месяц {{ year }} года
-        </h5>
-    </div>
-
-    <div class="card-body table-responsive">
-        <table class="table table-bordered table-hover">
+    <div class="card-header">Статистика за {{ month }} месяц {{ year }} года</div>
+    <div class="card-body p-0 table-responsive">
+        <table class="table table-bordered mb-0">
             <thead>
                 <tr>
-                    <th rowspan="2">№</th>
-                    <th rowspan="2">Информация</th>
+                    <th rowspan="2">No</th>
+                    <th rowspan="2" style="min-width: 180px;">Информация</th>
                     <th rowspan="2">План за месяц</th>
-
                     <th colspan="3">За сутки</th>
                     <th colspan="3">С начала месяца</th>
                     <th colspan="3">С начала года</th>
@@ -29,40 +114,31 @@
                     <th>План</th><th>Факт</th><th>+/-</th>
                 </tr>
             </thead>
-
             <tbody>
             {% for block in statistics %}
                 <tr class="workshop-header" data-target="#w{{ forloop.counter }}">
-                    <td colspan="12" class="text-start">
-                        <i class="bi bi-chevron-down arrow me-2"></i>
-                        {{ block.workshop.name }}
-                    </td>
+                    <td colspan="12" class="text-start"><i class="bi bi-chevron-down arrow me-2"></i>{{ block.workshop.name }}</td>
                 </tr>
-
-                <tbody id="w{{ forloop.counter }}">
+                <tbody class="workshop-rows" id="w{{ forloop.counter }}">
                 {% for row in block.rows %}
                 <tr>
                     <td>{{ forloop.counter }}</td>
                     <td class="text-start">{{ row.resource.name }}</td>
-                    <td>{{ row.plan_month|floatformat:2 }}</td>
+                    <td><strong>{{ row.plan_month|floatformat:2 }}</strong></td>
 
                     <td>{{ row.day_plan|floatformat:2 }}</td>
-                    <td>{{ row.day_fact|floatformat:2 }}</td>
-                    <td class="{% if row.day_diff >= 0 %}positive{% else %}negative{% endif %}">
-                        {{ row.day_diff|floatformat:2 }}
+                    <td class="{% if row.day_fact < row.day_plan %}fact-below{% elif row.day_fact > row.day_plan %}fact-above{% endif %}">
+                        {{ row.day_fact|floatformat:2 }}
                     </td>
+                    <td class="{% if row.day_diff >= 0 %}positive{% else %}negative{% endif %}">{% if row.day_diff >= 0 %}+{% endif %}{{ row.day_diff|floatformat:2 }}</td>
 
                     <td>{{ row.month_plan|floatformat:2 }}</td>
-                    <td>{{ row.month_fact|floatformat:2 }}</td>
-                    <td class="{% if row.month_diff >= 0 %}positive{% else %}negative{% endif %}">
-                        {{ row.month_diff|floatformat:2 }}
-                    </td>
+                    <td class="{% if row.month_fact < row.month_plan %}fact-below{% elif row.month_fact > row.month_plan %}fact-above{% endif %}">{{ row.month_fact|floatformat:2 }}</td>
+                    <td class="{% if row.month_diff >= 0 %}positive{% else %}negative{% endif %}">{% if row.month_diff >= 0 %}+{% endif %}{{ row.month_diff|floatformat:2 }}</td>
 
                     <td>{{ row.year_plan|floatformat:2 }}</td>
-                    <td>{{ row.year_fact|floatformat:2 }}</td>
-                    <td class="{% if row.year_diff >= 0 %}positive{% else %}negative{% endif %}">
-                        {{ row.year_diff|floatformat:2 }}
-                    </td>
+                    <td class="{% if row.year_fact < row.year_plan %}fact-below{% elif row.year_fact > row.year_plan %}fact-above{% endif %}">{{ row.year_fact|floatformat:2 }}</td>
+                    <td class="{% if row.year_diff >= 0 %}positive{% else %}negative{% endif %}">{% if row.year_diff >= 0 %}+{% endif %}{{ row.year_diff|floatformat:2 }}</td>
                 </tr>
                 {% endfor %}
                 </tbody>
@@ -71,7 +147,6 @@
         </table>
     </div>
 </div>
-
 {% endblock %}
 
 {% block extra_js %}
@@ -79,11 +154,10 @@
 $(function () {
     $('.workshop-header').on('click', function () {
         const target = $($(this).data('target'));
-        const arrow = $(this).find('.arrow');
-
-        target.slideToggle(200);
+        target.slideToggle(250);
         $(this).toggleClass('collapsed');
     });
+    $('.workshop-header').addClass('collapsed');
 });
 </script>
 {% endblock %}

@@ -2,6 +2,9 @@ from django.views.generic import ListView
 from django.utils import timezone
 from datetime import datetime
 from operative.models import Resource, Workshop, StatisticsManager
+import pandas as pd
+from django.http import HttpResponse
+from django.template.loader import render_to_string
 
 
 class StatisticsView(ListView):
@@ -62,3 +65,4 @@ class StatisticsView(ListView):
         context['year'] = int(self.request.GET.get('year', timezone.now().year))
         context['month'] = int(self.request.GET.get('month', timezone.now().month))
         return context
+
