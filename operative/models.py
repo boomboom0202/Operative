@@ -5,13 +5,18 @@ from calendar import monthrange
 
 class Workshop(models.Model): 
     name = models.CharField(max_length=150)
+    name_kz = models.CharField(max_length=150, null=True, blank=True)
+    code = models.IntegerField(unique=True, null=True, blank=True)
+    ord_s = models.IntegerField(null=True, blank=True)
     
     def __str__(self):
         return self.name
 
 class Resource(models.Model): 
     name = models.CharField(max_length=150, null=True, blank=True)
+    name_kz = models.CharField(max_length=150, null=True, blank=True)
     unit = models.CharField(max_length=20)
+    priority = models.IntegerField(default=0, null=True, blank=True)
     
     def __str__(self):
         return f"{self.name} ({self.unit})"
@@ -20,16 +25,16 @@ class Plan(models.Model):
     workshop = models.ForeignKey(
         Workshop,
         on_delete=models.CASCADE,
-        related_name='monthly_plans'
+        related_name='plans'
     )
     resource = models.ForeignKey(
         Resource,
         on_delete=models.CASCADE,
-        related_name='monthly_plans'
+        related_name='plans'
     )
     year = models.IntegerField()
-    month = models.IntegerField()  # 1-12
-    plan_value = models.FloatField(help_text="План на месяц")
+    month = models.IntegerField()  
+    plan_value = models.FloatField(help_text="План")
     
     class Meta:
         unique_together = ['workshop', 'resource', 'year', 'month']
