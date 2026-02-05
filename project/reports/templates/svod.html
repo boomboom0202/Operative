@@ -1,0 +1,596 @@
+<!-- reports/templates/svod.html -->
+{% extends "base.html" %}
+{% load report_filters %}
+
+{% block title %}Оперативные показатели корпорации{% endblock %}
+
+{% block extra_css %}
+<style>
+    .report-container {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
+    }
+    
+    .toolbar {
+        background: white;
+        padding: 12px 15px;
+        border-bottom: 1px solid var(--border-color);
+        flex-shrink: 0;
+    }
+    
+    .toolbar-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    
+    .toolbar-row + .toolbar-row {
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid #f0f0f0;
+    }
+    
+    .date-input {
+        padding: 8px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        font-size: 13px;
+        flex: 1;
+        min-width: 200px;
+        max-width: 300px;
+    }
+    
+    .date-input:focus {
+        outline: none;
+        border-color: var(--primary-color);
+    }
+    
+    .spacer {
+        flex: 1;
+    }
+    
+    .content-area {
+        flex: 1;
+        overflow: auto;
+        background: #fafafa;
+    }
+    
+    .table-view {
+        display: block;
+        padding: 0;
+    }
+    
+    /* Horizontal scroll wrapper for mobile */
+    .table-scroll-wrapper {
+        overflow-x: auto;
+        overflow-y: visible;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .table-scroll-wrapper::-webkit-scrollbar {
+        height: 8px;
+    }
+    
+    .table-scroll-wrapper::-webkit-scrollbar-track {
+        background: #f1f1f1;
+    }
+    
+    .table-scroll-wrapper::-webkit-scrollbar-thumb {
+        background: var(--primary-color);
+        border-radius: 4px;
+    }
+    
+    .table-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+        background: var(--primary-dark);
+    }
+    
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        font-size: 12px;
+    }
+    
+    .data-table thead {
+        background: var(--primary-color);
+    }
+    
+    .data-table th {
+        position: sticky;
+        top: 0;
+        z-index: 15;
+        color: white;
+        padding: 10px 8px;
+        text-align: center;
+        font-weight: 600;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        border-right: 1px solid rgba(255,255,255,0.1);
+        white-space: nowrap;
+        background: var(--primary-color);
+    }
+    
+    /* Narrow width for № column */
+    .data-table td:first-child,
+    .data-table th:first-child {
+        width: 50px;
+        max-width: 50px;
+        min-width: 50px;
+        text-align: center;
+        padding: 8px 4px;
+    }
+    
+    .data-table th.period-header {
+        background: var(--primary-dark, #004A85);
+        font-size: 12px;
+        font-weight: 700;
+        padding: 8px;
+    }
+    
+    .data-table th.group-header {
+        background: var(--primary-color);
+        vertical-align: middle;
+    }
+    
+    .data-table th.sub-header {
+        background: #0066B3;
+        font-size: 10px;
+        padding: 6px 4px;
+    }
+    
+    .data-table th:last-child {
+        border-right: none;
+    }
+    
+    .data-table td {
+        padding: 8px;
+        border-bottom: 1px solid #f0f0f0;
+        border-right: 1px solid #f5f5f5;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 200px;
+        text-align: left;
+    }
+    
+    .data-table td:last-child {
+        border-right: none;
+    }
+    
+    .data-table tbody tr:hover:not(.enterprise-row) {
+        background: #f8f9fa;
+    }
+    
+    .enterprise-row {
+        background: linear-gradient(90deg, #e3f2fd 0%, #fff9e6 100%);
+        cursor: pointer;
+        user-select: none;
+        border-left: 4px solid var(--primary-color);
+        font-weight: 600;
+    }
+    
+    .enterprise-row:hover {
+        background: linear-gradient(90deg, #bbdefb 0%, #fff3cd 100%);
+    }
+    
+    .enterprise-row td {
+        padding: 10px 8px;
+    }
+    
+    .enterprise-row td:first-child {
+        padding: 10px 4px;
+        position: relative;
+    }
+    
+    .toggle-icon {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 10px;
+        color: var(--primary-color);
+        font-weight: bold;
+        transition: transform 0.2s;
+    }
+    
+    .toggle-icon.collapsed {
+        transform: translate(-50%, -50%) rotate(-90deg);
+    }
+    
+    .child-row.hidden {
+        display: none;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: var(--text-light);
+    }
+    
+    .empty-icon {
+        font-size: 48px;
+        margin-bottom: 15px;
+        opacity: 0.3;
+    }
+    
+    .empty-text {
+        font-size: 14px;
+        color: var(--text-medium);
+    }
+    
+    .negative-value {
+        color: #d32f2f !important;
+        font-weight: 600;
+    }
+    
+    /* Scroll hint for mobile */
+    .scroll-hint {
+        display: none;
+        position: sticky;
+        top: 0;
+        background: #fff9e6;
+        color: var(--text-medium);
+        padding: 8px 12px;
+        text-align: center;
+        font-size: 11px;
+        border-bottom: 1px solid #ffe082;
+        z-index: 50;
+        animation: fadeIn 0.3s ease-in;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    .scroll-hint.hidden {
+        display: none;
+    }
+    
+    /* Responsive */
+    @media (max-width: 1024px) {
+        .data-table {
+            font-size: 11px;
+        }
+        
+        .data-table th,
+        .data-table td {
+            padding: 6px;
+        }
+        
+        .data-table td:first-child,
+        .data-table th:first-child {
+            padding: 6px 4px;
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .toolbar {
+            padding: 10px;
+        }
+        
+        .date-input {
+            min-width: 150px;
+            max-width: 100%;
+            font-size: 12px;
+        }
+        
+        .btn {
+            font-size: 12px;
+            padding: 6px 12px;
+        }
+        
+        .toolbar-row {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .date-input {
+            width: 100%;
+            max-width: 100%;
+        }
+        
+        .spacer {
+            display: none;
+        }
+        
+        /* Optimize table for mobile horizontal scroll */
+        .scroll-hint {
+            display: block;
+        }
+        
+        .data-table {
+            font-size: 10px;
+            min-width: 1200px; /* Force minimum width for horizontal scroll */
+        }
+        
+        .data-table th,
+        .data-table td {
+            padding: 6px 4px;
+            font-size: 10px;
+        }
+        
+        .data-table td:first-child,
+        .data-table th:first-child {
+            width: 40px;
+            max-width: 40px;
+            min-width: 40px;
+            padding: 6px 2px;
+        }
+        
+        .data-table th.period-header {
+            font-size: 11px;
+        }
+        
+        .data-table th.sub-header {
+            font-size: 9px;
+        }
+        
+        /* Make name_rab (2nd column) sticky on mobile */
+        /* В первой строке thead это 2-й th (после mes) */
+        .data-table thead tr:first-child th:nth-child(2) {
+            position: sticky;
+            left: 0;
+            background: var(--primary-color);
+            z-index: 25;
+        }
+        
+        /* Во второй строке thead нет name_rab (rowspan), но нужно учесть это */
+        /* для корректной работы sticky */
+        
+        .data-table td:nth-child(2) {
+            position: sticky;
+            left: 0;
+            background: white;
+            z-index: 8;
+            min-width: 180px;
+            max-width: 180px;
+            box-shadow: 2px 0 4px rgba(0,0,0,0.1);
+        }
+        
+        .enterprise-row td:nth-child(2) {
+            background: linear-gradient(90deg, #e3f2fd 0%, #fff9e6 100%);
+        }
+        
+        .child-row td:nth-child(2) {
+            background: white;
+        }
+        
+        .toggle-icon {
+            font-size: 9px;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .data-table {
+            font-size: 9px;
+            min-width: 1000px;
+        }
+        
+        .data-table th,
+        .data-table td {
+            padding: 5px 3px;
+            font-size: 9px;
+        }
+        
+        .data-table td:first-child,
+        .data-table th:first-child {
+            width: 35px;
+            max-width: 35px;
+            min-width: 35px;
+            padding: 5px 2px;
+        }
+        
+        .data-table th.period-header {
+            font-size: 10px;
+            padding: 6px 4px;
+        }
+        
+        .data-table th.sub-header {
+            font-size: 8px;
+            padding: 4px 2px;
+        }
+        
+        /* Sticky name_rab column for small screens */
+        .data-table td:nth-child(2) {
+            min-width: 150px;
+            max-width: 150px;
+            font-size: 9px;
+        }
+        
+        .toggle-icon {
+            font-size: 8px;
+        }
+        
+        .scroll-hint {
+            font-size: 10px;
+            padding: 6px 10px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="report-container">
+    <div class="toolbar">
+        <div class="toolbar-row">
+            <form method="get" action="{% url 'svod_report_page' %}" style="display: flex; align-items: center; gap: 10px; flex: 1; flex-wrap: wrap;">
+                <input 
+                    type="text" 
+                    name="date" 
+                    value="{{ date }}" 
+                    placeholder="2025-01-29 00:00:00"
+                    class="date-input"
+                    required
+                >
+                <button type="submit" class="btn btn-primary">
+                    🔍 Загрузить
+                </button>
+            </form>
+            <div class="spacer"></div>
+            {% if data %}
+                <a href="{% url 'export_svod_excel' %}?date={{ date }}" class="btn btn-secondary">
+                    📊 Excel
+                </a>
+            {% endif %}
+        </div>
+        
+        {% if data %}
+        <div class="toolbar-row">
+            <button type="button" class="btn btn-secondary" onclick="toggleAll()">
+                ↕️ Развернуть/Свернуть
+            </button>
+        </div>
+        {% endif %}
+    </div>
+    <div class="content-area">
+        {% if data %}
+            <div class="scroll-hint" id="scrollHint">
+                ← Прокрутите вправо для просмотра всех данных →
+            </div>
+            
+            <div class="table-view">
+                <div class="table-scroll-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                {# Первая строка - группировка по периодам #}
+                                {% for col in columns %}
+                                    {% if col.key == 'mes' or col.key == 'name' or col.key == 'name_rab' or col.key == 'ediz' or col.key == 'plan_mes' %}
+                                        <th rowspan="2" class="group-header">{{ col.title }}</th>
+                                    {% elif col.key == 'plan_s' %}
+                                        <th colspan="3" class="period-header">За сутки</th>
+                                    {% elif col.key == 'plan_m' %}
+                                        <th colspan="3" class="period-header">За месяц</th>
+                                    {% elif col.key == 'plan_g' %}
+                                        <th colspan="3" class="period-header">За год</th>
+                                    {% elif col.key == 'vipol' %}
+                                        <th rowspan="2" class="group-header">{{ col.title }}</th>
+                                    {% endif %}
+                                {% endfor %}
+                            </tr>
+                            <tr>    
+                                {# Вторая строка - План/Факт/Отклонение #}
+                                {% for col in columns %}
+                                    {% if col.key == 'plan_s' or col.key == 'plan_m' or col.key == 'plan_g' %}
+                                        <th class="sub-header">План</th>
+                                    {% elif col.key == 'fakt_S' or col.key == 'fakt_m' or col.key == 'fakt_g' %}
+                                        <th class="sub-header">Факт</th>
+                                    {% elif col.key == 'delta_s' or col.key == 'delta_m' or col.key == 'delta_g' %}
+                                        <th class="sub-header">Откл.</th>
+                                    {% endif %}
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in grouped_data %}
+                                {% if row.is_header %}
+                                    <tr class="enterprise-row" data-enterprise="{{ row.enterprise_id }}">
+                                        {% for col in columns %}
+                                            <td title="{{ row.data|get_item:col.key|default:'' }}">
+                                                {% if forloop.first %}
+                                                    <span class="toggle-icon" id="icon-{{ row.enterprise_id }}">▼</span>
+                                                {% endif %}
+                                                {% with value=row.data|get_item:col.key %}
+                                                    {% if col.key == 'delta_s' or col.key == 'delta_m' or col.key == 'delta_g' %}
+                                                        <span class="{% if value < 0 %}negative-value{% endif %}">{{ value|default:"" | safe }}</span>
+                                                    {% else %}
+                                                        {{ value|default:"" | safe }}
+                                                    {% endif %}
+                                                {% endwith %}
+                                            </td>
+                                        {% endfor %}
+                                    </tr>
+                                {% else %}
+                                    <tr class="child-row" data-parent="{{ row.parent_id }}">
+                                        {% for col in columns %}
+                                            <td title="{{ row.data|get_item:col.key|default:'' }}">
+                                                {% with value=row.data|get_item:col.key %}
+                                                    {% if col.key == 'delta_s' or col.key == 'delta_m' or col.key == 'delta_g' %}
+                                                        <span class="{% if value < 0 %}negative-value{% endif %}">{{ value|default:"" | safe }}</span>
+                                                    {% else %}
+                                                        {{ value|default:"" | safe }}
+                                                    {% endif %}
+                                                {% endwith %}
+                                            </td>
+                                        {% endfor %}
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <div class="empty-icon">📊</div>
+                <p class="empty-text">Выберите дату и загрузите отчет</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    $(document).ready(function() {
+        let allExpanded = true;
+        
+        $('.table-scroll-wrapper').on('scroll', function() {
+            if ($(this).scrollLeft() > 50) {
+                $('#scrollHint').fadeOut(300);
+            }
+        });
+        
+        setTimeout(function() {
+            $('#scrollHint').fadeOut(300);
+        }, 5000);
+        
+        window.toggleEnterprise = function(enterpriseId) {
+            const $children = $('tr[data-parent="' + enterpriseId + '"]');
+            const $icon = $('#icon-' + enterpriseId);
+            
+            if ($children.length === 0) return;
+            
+            const isHidden = $children.first().hasClass('hidden');
+            
+            if (isHidden) {
+                $children.removeClass('hidden');
+                $icon.removeClass('collapsed');
+            } else {
+                $children.addClass('hidden');
+                $icon.addClass('collapsed');
+            }
+        };
+        
+        window.toggleAll = function() {
+            const $allChildren = $('.child-row');
+            const $allIcons = $('.toggle-icon');
+            
+            if (allExpanded) {
+                $allChildren.addClass('hidden');
+                $allIcons.addClass('collapsed');
+                allExpanded = false;
+            } else {
+                $allChildren.removeClass('hidden');
+                $allIcons.removeClass('collapsed');
+                allExpanded = true;
+            }
+        };
+        
+        $('.enterprise-row').on('click', function(e) {
+            e.preventDefault();
+            const enterpriseId = $(this).data('enterprise');
+            toggleEnterprise(enterpriseId);
+            const totalChildren = $('.child-row').length;
+            const hiddenChildren = $('.child-row.hidden').length;
+            allExpanded = (hiddenChildren === 0);
+        });
+    });
+</script>
+{% endblock %}
