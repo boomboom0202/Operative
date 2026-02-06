@@ -161,10 +161,11 @@
         border-right: none;
     }
     
-    .data-table tbody tr:hover:not(.enterprise-row) {
+    .data-table tbody tr:hover:not(.enterprise-row):not(.subgroup-row) {
         background: #f8f9fa;
     }
     
+    /* Основная группа (level 1) */
     .enterprise-row {
         background: linear-gradient(90deg, #e3f2fd 0%, #fff9e6 100%);
         cursor: pointer;
@@ -181,7 +182,39 @@
         padding: 10px 8px;
     }
     
-    .enterprise-row td:first-child {
+    /* Подгруппа (level 2) */
+    .subgroup-row {
+        background: linear-gradient(90deg, #bbdefb 0%, #fff3cd 100%);
+        cursor: pointer;
+        user-select: none;
+        border-left: 3px solid #0288d1;
+        font-weight: 600;
+    }
+    
+    .subgroup-row:hover {
+        background: linear-gradient(90deg, #90caf9 0%, #ffe082 100%);
+    }
+    
+    .subgroup-row td {
+        padding: 9px 8px;
+    }
+    
+    /* Отступы для вложенности */
+    .subgroup-row td:nth-child(2) {
+        padding-left: 20px;
+    }
+    
+    .child-row td:nth-child(2) {
+        padding-left: 20px;
+    }
+    
+    /* Дополнительный отступ для элементов подгруппы */
+    .child-row[data-parent*="_sub_"] td:nth-child(2) {
+        padding-left: 40px;
+    }
+    
+    .enterprise-row td:first-child,
+    .subgroup-row td:first-child {
         padding: 10px 4px;
         position: relative;
     }
@@ -266,6 +299,18 @@
         .data-table th:first-child {
             padding: 6px 4px;
         }
+        
+        .subgroup-row td:nth-child(2) {
+            padding-left: 16px;
+        }
+        
+        .child-row td:nth-child(2) {
+            padding-left: 16px;
+        }
+        
+        .child-row[data-parent*="_sub_"] td:nth-child(2) {
+            padding-left: 32px;
+        }
     }
     
     @media (max-width: 768px) {
@@ -331,16 +376,12 @@
         }
         
         /* Make name_rab (2nd column) sticky on mobile */
-        /* В первой строке thead это 2-й th (после mes) */
         .data-table thead tr:first-child th:nth-child(2) {
             position: sticky;
             left: 0;
             background: var(--primary-color);
             z-index: 25;
         }
-        
-        /* Во второй строке thead нет name_rab (rowspan), но нужно учесть это */
-        /* для корректной работы sticky */
         
         .data-table td:nth-child(2) {
             position: sticky;
@@ -356,8 +397,17 @@
             background: linear-gradient(90deg, #e3f2fd 0%, #fff9e6 100%);
         }
         
+        .subgroup-row td:nth-child(2) {
+            background: linear-gradient(90deg, #bbdefb 0%, #fff3cd 100%);
+            padding-left: 12px;
+        }
+        
         .child-row td:nth-child(2) {
             background: white;
+        }
+        
+        .child-row[data-parent*="_sub_"] td:nth-child(2) {
+            padding-left: 24px;
         }
         
         .toggle-icon {
@@ -400,6 +450,14 @@
             min-width: 150px;
             max-width: 150px;
             font-size: 9px;
+        }
+        
+        .subgroup-row td:nth-child(2) {
+            padding-left: 10px;
+        }
+        
+        .child-row[data-parent*="_sub_"] td:nth-child(2) {
+            padding-left: 20px;
         }
         
         .toggle-icon {
@@ -489,23 +547,45 @@
                         <tbody>
                             {% for row in grouped_data %}
                                 {% if row.is_header %}
-                                    <tr class="enterprise-row" data-enterprise="{{ row.enterprise_id }}">
-                                        {% for col in columns %}
-                                            <td title="{{ row.data|get_item:col.key|default:'' }}">
-                                                {% if forloop.first %}
-                                                    <span class="toggle-icon" id="icon-{{ row.enterprise_id }}">▼</span>
-                                                {% endif %}
-                                                {% with value=row.data|get_item:col.key %}
-                                                    {% if col.key == 'delta_s' or col.key == 'delta_m' or col.key == 'delta_g' %}
-                                                        <span class="{% if value < 0 %}negative-value{% endif %}">{{ value|default:"" | safe }}</span>
-                                                    {% else %}
-                                                        {{ value|default:"" | safe }}
+                                    {% if row.level == 1 %}
+                                        {# Основная группа (предприятие) #}
+                                        <tr class="enterprise-row" data-enterprise="{{ row.enterprise_id }}">
+                                            {% for col in columns %}
+                                                <td title="{{ row.data|get_item:col.key|default:'' }}">
+                                                    {% if forloop.first %}
+                                                        <span class="toggle-icon" id="icon-{{ row.enterprise_id }}">▼</span>
                                                     {% endif %}
-                                                {% endwith %}
-                                            </td>
-                                        {% endfor %}
-                                    </tr>
+                                                    {% with value=row.data|get_item:col.key %}
+                                                        {% if col.key == 'delta_s' or col.key == 'delta_m' or col.key == 'delta_g' %}
+                                                            <span class="{% if value < 0 %}negative-value{% endif %}">{{ value|default:"" | safe }}</span>
+                                                        {% else %}
+                                                            {{ value|default:"" | safe }}
+                                                        {% endif %}
+                                                    {% endwith %}
+                                                </td>
+                                            {% endfor %}
+                                        </tr>
+                                    {% elif row.level == 2 %}
+                                        {# Подгруппа #}
+                                        <tr class="subgroup-row child-row" data-enterprise="{{ row.enterprise_id }}" data-parent="{{ row.parent_id }}">
+                                            {% for col in columns %}
+                                                <td title="{{ row.data|get_item:col.key|default:'' }}">
+                                                    {% if forloop.first %}
+                                                        <span class="toggle-icon" id="icon-{{ row.enterprise_id }}">▼</span>
+                                                    {% endif %}
+                                                    {% with value=row.data|get_item:col.key %}
+                                                        {% if col.key == 'delta_s' or col.key == 'delta_m' or col.key == 'delta_g' %}
+                                                            <span class="{% if value < 0 %}negative-value{% endif %}">{{ value|default:"" | safe }}</span>
+                                                        {% else %}
+                                                            {{ value|default:"" | safe }}
+                                                        {% endif %}
+                                                    {% endwith %}
+                                                </td>
+                                            {% endfor %}
+                                        </tr>
+                                    {% endif %}
                                 {% else %}
+                                    {# Обычный элемент #}
                                     <tr class="child-row" data-parent="{{ row.parent_id }}">
                                         {% for col in columns %}
                                             <td title="{{ row.data|get_item:col.key|default:'' }}">
@@ -560,10 +640,22 @@
             const isHidden = $children.first().hasClass('hidden');
             
             if (isHidden) {
+                // Раскрываем только прямых потомков
                 $children.removeClass('hidden');
                 $icon.removeClass('collapsed');
             } else {
+                // Скрываем все потомки (включая вложенные)
                 $children.addClass('hidden');
+                
+                // Скрываем также всех потомков подгрупп
+                $children.each(function() {
+                    const subEnterpriseId = $(this).data('enterprise');
+                    if (subEnterpriseId) {
+                        $('tr[data-parent="' + subEnterpriseId + '"]').addClass('hidden');
+                        $('#icon-' + subEnterpriseId).addClass('collapsed');
+                    }
+                });
+                
                 $icon.addClass('collapsed');
             }
         };
@@ -583,10 +675,24 @@
             }
         };
         
+        // Обработка клика на основную группу
         $('.enterprise-row').on('click', function(e) {
             e.preventDefault();
             const enterpriseId = $(this).data('enterprise');
             toggleEnterprise(enterpriseId);
+            
+            const totalChildren = $('.child-row').length;
+            const hiddenChildren = $('.child-row.hidden').length;
+            allExpanded = (hiddenChildren === 0);
+        });
+        
+        // Обработка клика на подгруппу
+        $('.subgroup-row').on('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation(); // Предотвращаем всплытие события
+            const enterpriseId = $(this).data('enterprise');
+            toggleEnterprise(enterpriseId);
+            
             const totalChildren = $('.child-row').length;
             const hiddenChildren = $('.child-row.hidden').length;
             allExpanded = (hiddenChildren === 0);

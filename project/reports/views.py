@@ -109,27 +109,67 @@ def get_svod_report(date_param):
         }
 
 def group_data_by_enterprise(data):
-
+    MANUAL_SUBGROUPS = {
+        "Нурказганский производственный комплекс": [
+            "шахта Нурказган",
+            "Нурказганская ОФ (технолог.)"
+        ],
+    }
     grouped = []
     current_enterprise_id = None
+    current_subgroup_id = None
+    current_enterprise_name = None
     group_index = 0
+    subgroup_counters = {}
+    
+    all_subgroups = set()
+    for parent, subgroups in MANUAL_SUBGROUPS.items():
+        for subgroup in subgroups:
+            all_subgroups.add(subgroup)
 
     for row in data:
         kod_pred = row.get('kod_pred')
+        name = row.get('name', '').strip()
 
         if kod_pred == 0:
-            group_index += 1
-            current_enterprise_id = f"enterprise_{group_index}"
-
-            grouped.append({
-                'is_header': True,
-                'enterprise_id': current_enterprise_id,
-                'data': row
-            })
+            is_subgroup_of_another = name in all_subgroups
+            
+            if is_subgroup_of_another:
+                if current_enterprise_id not in subgroup_counters:
+                    subgroup_counters[current_enterprise_id] = 0
+                subgroup_counters[current_enterprise_id] += 1
+                
+                current_subgroup_id = f"{current_enterprise_id}_sub_{subgroup_counters[current_enterprise_id]}"
+                
+                grouped.append({
+                    'is_header': True,
+                    'level': 2,
+                    'enterprise_id': current_subgroup_id,
+                    'parent_id': current_enterprise_id,
+                    'data': row
+                })
+            else:
+                # Это основная группа
+                group_index += 1
+                current_enterprise_id = f"enterprise_{group_index}"
+                current_enterprise_name = name
+                current_subgroup_id = None
+                
+                grouped.append({
+                    'is_header': True,
+                    'level': 1,
+                    'enterprise_id': current_enterprise_id,
+                    'parent_id': None,
+                    'data': row
+                })
         else:
+            # Обычный элемент (kod_pred != 0)
+            parent = current_subgroup_id if current_subgroup_id else current_enterprise_id
+            
             grouped.append({
                 'is_header': False,
-                'parent_id': current_enterprise_id,
+                'level': 2,
+                'parent_id': parent,
                 'data': row
             })
 
@@ -166,6 +206,7 @@ def clean_html_entities(text):
         text = re.sub(r'\s+', ' ', text)
         text = text.strip()
         return text
+
 def export_svod_excel(request):
     date_str = request.GET.get('date', datetime.now().strftime('%Y-%m-%d 00:00:00'))
     
@@ -183,7 +224,8 @@ def export_svod_excel(request):
     BLUE_COLOR = '0066B3'      
     BLUE_DARK = '004A85'       
     YELLOW_COLOR = 'FFC627'    
-    LIGHT_BLUE = 'E3F2FD'      
+    LIGHT_BLUE = 'E3F2FD'
+    LIGHT_BLUE_2 = 'BBDEFB'  # Для подгрупп
     
     header_font = Font(name='Arial', size=11, bold=True, color='FFFFFF')
     header_fill = PatternFill(start_color=BLUE_COLOR, end_color=BLUE_COLOR, fill_type='solid')
@@ -194,6 +236,9 @@ def export_svod_excel(request):
     
     enterprise_font = Font(name='Arial', size=10, bold=True, color=BLUE_DARK)
     enterprise_fill = PatternFill(start_color=LIGHT_BLUE, end_color=LIGHT_BLUE, fill_type='solid')
+    
+    subgroup_font = Font(name='Arial', size=10, bold=True, color=BLUE_DARK)
+    subgroup_fill = PatternFill(start_color=LIGHT_BLUE_2, end_color=LIGHT_BLUE_2, fill_type='solid')
     
     normal_font = Font(name='Arial', size=10)
     
@@ -207,7 +252,6 @@ def export_svod_excel(request):
     columns = report_data['columns']
     num_cols = len(columns)
     
-    # Заголовок документа
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=num_cols)
     title_cell = ws['A1']
     title_cell.value = 'Оперативные показатели корпорации'
@@ -221,22 +265,15 @@ def export_svod_excel(request):
     date_cell.value = f'Дата: {date_str}'
     date_cell.font = Font(name='Arial', size=10)
     date_cell.alignment = Alignment(horizontal='center', vertical='center')
-    
-    # Заголовки таблицы
     header_row_1 = 4
     header_row_2 = 5
-    
-    # Определяем колонки, которые должны иметь rowspan=2
     rowspan_columns = ['mes', 'name', 'name_rab', 'ediz', 'plan_mes', 'vipol']
-    
-    # ПЕРВАЯ СТРОКА ЗАГОЛОВКА
     col_idx = 1
     for col in columns:
         cell_1 = ws.cell(row=header_row_1, column=col_idx)
         cell_1.border = border
         
         if col['key'] in rowspan_columns:
-            # Объединяем по вертикали (2 строки)
             ws.merge_cells(start_row=header_row_1, start_column=col_idx, 
                           end_row=header_row_2, end_column=col_idx)
             cell_1.value = clean_html_entities(col['title'])
@@ -246,22 +283,18 @@ def export_svod_excel(request):
             col_idx += 1
             
         elif col['key'] == 'plan_s':
-            # Группа "За сутки" (3 колонки)
             ws.merge_cells(start_row=header_row_1, start_column=col_idx, 
                           end_row=header_row_1, end_column=col_idx+2)
             cell_1.value = 'За сутки'
             cell_1.font = period_font
             cell_1.fill = period_fill
             cell_1.alignment = header_alignment
-            
-            # Применяем стили ко всем объединенным ячейкам
             for i in range(3):
                 ws.cell(row=header_row_1, column=col_idx+i).border = border
             
             col_idx += 3
             
         elif col['key'] == 'plan_m':
-            # Группа "За месяц" (3 колонки)
             ws.merge_cells(start_row=header_row_1, start_column=col_idx, 
                           end_row=header_row_1, end_column=col_idx+2)
             cell_1.value = 'За месяц'
@@ -275,7 +308,6 @@ def export_svod_excel(request):
             col_idx += 3
             
         elif col['key'] == 'plan_g':
-            # Группа "За год" (3 колонки)
             ws.merge_cells(start_row=header_row_1, start_column=col_idx, 
                           end_row=header_row_1, end_column=col_idx+2)
             cell_1.value = 'За год'
@@ -288,15 +320,12 @@ def export_svod_excel(request):
             
             col_idx += 3
     
-    # ВТОРАЯ СТРОКА ЗАГОЛОВКА - только для групп периодов
     col_idx = 1
     for col in columns:
         if col['key'] in rowspan_columns:
-            # Пропускаем - уже объединены с первой строкой
             col_idx += 1
             
         elif col['key'] in ['plan_s', 'plan_m', 'plan_g']:
-            # План
             cell = ws.cell(row=header_row_2, column=col_idx)
             cell.value = 'План'
             cell.font = header_font
@@ -306,7 +335,6 @@ def export_svod_excel(request):
             col_idx += 1
             
         elif col['key'] in ['fakt_S', 'fakt_m', 'fakt_g']:
-            # Факт
             cell = ws.cell(row=header_row_2, column=col_idx)
             cell.value = 'Факт'
             cell.font = header_font
@@ -316,7 +344,6 @@ def export_svod_excel(request):
             col_idx += 1
             
         elif col['key'] in ['delta_s', 'delta_m', 'delta_g']:
-            # Отклонение
             cell = ws.cell(row=header_row_2, column=col_idx)
             cell.value = 'Откл.'
             cell.font = header_font
@@ -325,19 +352,17 @@ def export_svod_excel(request):
             cell.border = border
             col_idx += 1
     
-    # Данные начинаются с 6-й строки
     current_row = 6
     
-    # Данные
     for row_data in grouped_data:
         is_header = row_data.get('is_header', False)
+        level = row_data.get('level', 1)
         data = row_data['data']
         
         for col_idx, col in enumerate(columns, start=1):
             cell = ws.cell(row=current_row, column=col_idx)
             value = data.get(col['key'], '')
             
-            # Форматирование чисел
             if isinstance(value, (int, float)):
                 if col['key'] in ['vipol']:
                     cell.value = value
@@ -349,15 +374,23 @@ def export_svod_excel(request):
                 cleaned_value = clean_html_entities(str(value)) if value else ''
                 cell.value = cleaned_value
             
-            cell.font = enterprise_font if is_header else normal_font
             if is_header:
-                cell.fill = enterprise_fill
+                if level == 1:
+                    cell.font = enterprise_font
+                    cell.fill = enterprise_fill
+                elif level == 2:
+                    cell.font = subgroup_font
+                    cell.fill = subgroup_fill
+            else:
+                cell.font = normal_font
+                if col_idx == 3 and row_data.get('parent_id', '').find('_sub_') != -1:  
+                    cell.value = '    ' + str(cell.value)
+                    
             cell.alignment = Alignment(horizontal='left', vertical='center')
             cell.border = border
         
         current_row += 1
     
-    # Автоматическая ширина колонок
     for col_idx in range(1, num_cols + 1):
         column_letter = get_column_letter(col_idx)
         max_length = 0
